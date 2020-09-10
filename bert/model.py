@@ -10,9 +10,7 @@ class BERTClassifier(nn.Module):
     def __init__(self, model_option, n_classes):
         super(BERTClassifier, self).__init__()
         self.bert = BertModel.from_pretrained(model_option)
-        self.drop = nn.Dropout(p=0.1)
-        self.relu = nn.ReLU()
-        # self.fc1 = nn.Linear(self.bert.config.hidden_size * 2 + 11, 120)
+        self.drop = nn.Dropout(p=0.3)
         self.out = nn.Linear(self.bert.config.hidden_size * 2, n_classes)
 
     # consider metadata
@@ -27,11 +25,8 @@ class BERTClassifier(nn.Module):
         )
 
         output = torch.cat((pooled_output1, pooled_output2), 1)
-        # output = self.relu(self.fc1(output))
         output = self.drop(output)
-        res = self.out(output)
-
-        return res
+        return self.out(output)
 
 
 class Model:
@@ -188,7 +183,7 @@ class Model:
 
                 _, pred = torch.max(outputs, dim=1)
 
-                # Store predictions and true labels
+                # Store predictions
                 predictions.extend(pred)
 
         predictions = torch.stack(predictions).cpu()

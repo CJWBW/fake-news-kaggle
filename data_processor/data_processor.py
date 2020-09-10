@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
+from torch.utils.data import random_split
 
 
 class FakeNewsKaggleDataset(Dataset):
@@ -80,22 +81,62 @@ class DataProcessor:
         train_df_all = pd.read_csv(DataProcessor.TRAIN_PATH)
         test_df_all = pd.read_csv(DataProcessor.TEST_PATH)
 
-        # drop when text is empty, replace with '' when title is empty, don't care about author
-        train_df_all.dropna(subset=['text'])
+        # from the analysis below, text can go up to 24234 words, too big for analyzing
+        # can use 128 words from text but mainly will use titles, which has maximum length of 72 words
+
+        # drop when title is empty, replace with '' when text is empty, don't care about author
+        train_df_all = train_df_all[train_df_all['title'].notna()]
+        test_df_all = test_df_all[test_df_all['title'].notna()]
+
+        # print(train_df_all.isnull().sum())
         train_df_all.fillna('', inplace=True)
-        test_df_all.dropna(subset=['text'])
         test_df_all.fillna('', inplace=True)
 
-        # only for easier set up for running on part of the dataset
-        train_df = train_df_all[:]
-        test_df = test_df_all[:]
+        # split train to train and validation
+        total_train_size = len(train_df_all['title'].values)
+        new_train_size = int(0.9 * total_train_size)
+        new_train_df_all, validation_df_all = random_split(train_df_all, [new_train_size, total_train_size - new_train_size],
+                                                               generator=torch.Generator().manual_seed(42))
 
-        train_titles = train_df['title']
-        test_titles = test_df['title']
-        train_texts = train_df['text']
-        test_texts = test_df['text']
-        train_labels = train_df['labels']
-        test_ids = test_df['id']
+        # actual execution part of the data, to avoid out of memory, only for easier set up for running on part of the dataset
+        new_train_df = new_train_df_all.dataset[:10]
+        test_df = test_df_all[:1]
+        validation_df = validation_df_all.dataset[:1]
 
-        return train_titles, test_titles, train_texts, test_texts, train_labels, test_ids
+        train_titles = new_train_df['title'].values
+        test_titles = test_df['title'].values
+        validation_titles = validation_df['title'].values
+        train_texts = new_train_df['text'].values
+        test_texts = test_df['text'].values
+        validation_texts = validation_df['text'].values
+        train_labels = new_train_df['label'].values
+        validation_labels = validation_df['label'].values
+        test_ids = test_df['id'].values
+
+        '''
+        # only for analyzing data
+        # id, length
+        max_train_text = (-1, 0)
+        max_test_text = (-1, 0)
+        max_train_title = (-1, 0)
+        max_test_title = (-1, 0)
+
+        for _, train in train_df_all.iterrows():
+            if len(train['text'].split()) > max_train_text[-1]:
+                max_train_text = (train['id'], len(train['text'].split()))
+            if len(train['title'].split()) > max_train_title[-1]:
+                max_train_title = (train['id'], len(train['title'].split()))
+
+        for _, test in test_df_all.iterrows():
+            if len(test['text'].split()) > max_test_text[-1]:
+                max_test_text = (test['id'], len(test['text'].split()))
+            if len(test['title'].split()) > max_test_title[-1]:
+                max_test_title = (test['id'], len(test['title'].split()))
+
+        longest_train_title = train_df_all.loc[train_df_all['id'] == max_train_title[0]]['title']
+        longest_train_text = train_df_all.loc[train_df_all['id'] == max_train_text[0]]['text']
+        longest_test_title = test_df_all.loc[test_df_all['id'] == max_test_title[0]]['title']
+        longest_test_text = test_df_all.loc[test_df_all['id'] == max_test_text[0]]['text']
+        '''
+        return train_titles, validation_titles, test_titles, train_texts, validation_texts, test_texts, train_labels, validation_labels, test_ids
 
