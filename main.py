@@ -1,10 +1,10 @@
 import torch
-import pickle
 from transformers import BertTokenizer
-from sklearn.metrics import classification_report
 from data_processor.data_processor import DataProcessor
 from bert.model import BERTClassifier, Model
 from torch.utils.data import random_split
+import pandas as pd
+from pathlib import Path
 
 
 NUM_LABELS = 2
@@ -31,16 +31,11 @@ def get_device():
 
 def main():
 
-    if NUM_LABELS == 2:
-        class_names = ['True', 'Fake']
-    else:
-        class_names = ['true', 'mostly-true', 'half-true', 'barely-true', 'false', 'pants-fire']
-
-    train_titles, test_titles, train_texts, test_texts, train_labels, test_labels = DataProcessor.load_dataset()
+    train_titles, test_titles, train_texts, test_texts, train_labels, test_ids = DataProcessor.load_dataset()
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
     dataloader = DataProcessor.create_dataloader(train_titles, train_texts, train_labels, tokenizer, MAX_LEN, BATCH_SIZE)
-    test_dataloader = DataProcessor.create_dataloader(test_titles, test_texts, test_labels, tokenizer, MAX_LEN, BATCH_SIZE)
+    test_dataloader = DataProcessor.create_dataloader(test_titles, test_texts, None, tokenizer, MAX_LEN, BATCH_SIZE)
     train_size = int(0.9 * len(train_titles))
     validation_size = len(train_titles) - train_size
     train_dataloader, validation_dataloader = random_split(dataloader, [train_size, validation_size], generator=torch.Generator().manual_seed(42))
@@ -60,13 +55,11 @@ def main():
     print('test accuracy: ', test_acc.item())
 
     # predictions
-    pred, test_labels = Model.get_predictions(model, test_dataloader, device)
-
-    with open('record.txt', 'wb') as f:
-        pickle.dump(pred, f)
-        pickle.dump(test_labels, f)
-
-    print(classification_report(test_labels, pred, target_names=class_names))
+    pred = Model.get_predictions(model, test_dataloader, device)
+    predictions = {'id': test_ids, 'label': pred}
+    prediction_df = pd.DataFrame(predictions, columns=['id', 'label'])
+    RESULT_PATH = Path(__file__) / "data/result.csv"
+    prediction_df.to_csv(RESULT_PATH, index=False, header=True)
 
 
 if __name__ == "__main__":

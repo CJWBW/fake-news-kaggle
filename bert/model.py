@@ -178,7 +178,6 @@ class Model:
                 text_input_ids = data["text_input_ids"].to(device)
                 attention_mask1 = data["attention_mask1"].to(device)
                 attention_mask2 = data["attention_mask2"].to(device)
-                labels = data["labels"].to(device)
 
                 outputs = model(
                     title_input_ids=title_input_ids,
@@ -191,8 +190,6 @@ class Model:
 
                 # Store predictions and true labels
                 predictions.extend(pred)
-                true_labels.extend(labels)
 
         predictions = torch.stack(predictions).cpu()
-        true_labels = torch.stack(true_labels).cpu()
-        return predictions, true_labels
+        return predictions

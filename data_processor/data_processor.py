@@ -95,7 +95,7 @@ class DataProcessor:
         train_texts = train_df['text']
         test_texts = test_df['text']
         train_labels = train_df['labels']
-        test_labels = test_df['labels']
+        test_ids = test_df['id']
 
-        return train_titles, test_titles, train_texts, test_texts, train_labels, test_labels
+        return train_titles, test_titles, train_texts, test_texts, train_labels, test_ids
 
